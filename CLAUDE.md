@@ -1,8 +1,6 @@
 # CLAUDE.md
 
 > **本文件会被 commit 到 public fork**，因此**不得包含任何敏感信息**（个人路径、真实邮箱、手机号、Lark ID、token 等）。
->
-> 如果当前工作目录存在 `CLAUDE.local.md`（已 gitignore），请同时阅读它 —— 那里存放本机私有上下文（具体扫描脚本路径、私有备忘等），不会进 git。
 
 ## 项目概述
 
