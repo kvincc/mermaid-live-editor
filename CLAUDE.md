@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+> **本文件会被 commit 到 public fork**，因此**不得包含任何敏感信息**（个人路径、真实邮箱、手机号、Lark ID、token 等）。
+>
+> 如果当前工作目录存在 `CLAUDE.local.md`（已 gitignore），请同时阅读它 —— 那里存放本机私有上下文（具体扫描脚本路径、私有备忘等），不会进 git。
+
 ## 项目概述
 
 这是 [mermaid-js/mermaid-live-editor](https://github.com/mermaid-js/mermaid-live-editor) 的本地部署，在其基础上添加了两个自定义脚本工具。
@@ -113,3 +117,85 @@ config:
 
 - dashboard 预览渲染时会剥离 frontmatter 块，因为某些 theme（如 `redux`）不是 mermaid 内置主题，只有 live editor 支持
 - 点击卡片跳转到 live editor 时传递的是完整原始代码（包括 frontmatter），live editor 能正确处理
+
+---
+
+## Git 仓库架构与工作流（重要）
+
+> 本节适用于「我」（Claude）和「用户」双方。任何 git 操作前请先核对此节，避免误推、隐私泄漏或破坏上游同步通路。
+
+### 双 remote 架构
+
+```
+origin     →  github.com/kvincc/mermaid-live-editor          (用户的 fork，public)
+                fetch ✓ / push ✓  ——  日常推送目标
+upstream   →  github.com/mermaid-js/mermaid-live-editor       (官方仓库)
+                fetch ✓ / push ❌  ——  push URL 已被故意设为无效字符串
+```
+
+`develop` 分支配置：
+
+- `branch.develop.remote = upstream` → `git pull` 拉官方
+- `branch.develop.pushRemote = origin` → `git push` 推自己的 fork
+- `branch.develop.merge = refs/heads/develop`
+
+### ⚠️ 隐私与安全（本仓库 fork 是 public）
+
+**这个 fork 在 GitHub 上是公开的**，意味着任何 commit、文件内容、commit message、commit 元信息都会被全网可见可索引。每次操作前的检查清单：
+
+1. **commit 的文件内容不得包含**：
+   - 个人路径（含本机用户名的绝对路径）—— 用 `$HOME` / `$SCRIPT_DIR` / `~` 替代
+   - 真实邮箱、手机号、Lark open_id、昵称等个人识别信息
+   - 任何 token / API key / 密码 / `.env` 内容
+2. **commit 元信息（author email）已配为 noreply 别名**，不要切回真实邮箱。具体值请直接查 `git config user.email`，本文档不写出，避免被搜索引擎索引到 noreply ↔ GitHub 账号的映射（虽然 noreply 本身不会泄漏邮箱，但减少暴露面更稳）。
+3. **新增文件前先扫一次**敏感模式（个人用户名、邮箱前缀、手机号、Lark ID 前缀 `ou_` 等）。可在本机维护一个 **gitignored 的扫描脚本**（含真实关键词）放在仓库外，比如 `~/.config/privacy-scan.sh`，由 Claude / 你手动调用，避免敏感模式本身被 commit。
+4. **commit message 也是公开的**，不要在 message 里写内部代号、客户名、未公开的 idea。
+
+### 日常工作流
+
+#### 提交本地改动（最常见）
+
+```bash
+git status                      # 确认改动文件
+git add <文件>                   # 不要用 git add . 或 -A，避免误传敏感文件
+git commit -m "local: <说明>"    # 必须用 'local:' 前缀，便于和上游 commit 区分
+git push                        # 自动推到 origin (你的 fork)
+```
+
+**commit message 约定**：所有本地改动统一用 `local:` 前缀（如 `local: add xxx`、`local: fix yyy`），方便日后用 `git log --oneline | grep '^[a-f0-9]* local:'` 一眼看出本地差异。
+
+#### 从官方同步最新代码
+
+```bash
+git fetch upstream               # 拉取官方最新（不改本地代码）
+git log HEAD..upstream/develop   # 看上游有哪些新 commit
+git merge upstream/develop       # 合并；若有冲突手工解
+git push                         # 把同步后的状态推到你的 fork
+```
+
+**冲突处理原则**：
+
+- 上游改动优先采纳（除非和你的 `local:` 改动直接矛盾）
+- 你的 `local:` 改动不能丢，必要时重新 apply
+- 解完冲突后再做一次隐私扫描（防止 merge 把别处内容意外带入）
+
+#### ❌ 禁止操作
+
+| 操作                               | 后果                                    | 替代方案                                  |
+| ---------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `git push upstream`                | 会失败（push URL 已锁），但永远不要尝试 | `git push`（推 fork）                     |
+| `git push --force` 到 upstream     | 即使锁了也别试，毫无意义                | —                                         |
+| 修改 `vite.config.js` 等上游源文件 | 每次 merge upstream 都会冲突            | 用包装脚本（如 `mmd-serve.sh`）+ CLI flag |
+| `git add .` / `git add -A`         | 可能误带 `.env`、临时文件、其他敏感内容 | 显式列出文件名                            |
+| 切回真实邮箱                       | commit log 永久暴露邮箱                 | 保持 noreply 别名                         |
+| commit 不带 `local:` 前缀          | 难以和上游 commit 区分                  | 一律加前缀                                |
+
+### Claude 自检清单（每次 git 操作前）
+
+我（Claude）在执行任何 commit / push / remote 操作前，必须：
+
+1. 跑 `git remote -v` 确认 origin / upstream 没被错改
+2. 跑 `git config user.email` 确认仍是 noreply 邮箱
+3. `git diff --cached` 扫一遍隐私敏感模式
+4. push 前确认目标是 `origin`（fork）而非 `upstream`
+5. 任何破坏性操作（`reset --hard`、`push --force`、删除分支、改 remote URL）**必须先问用户确认**，不得自作主张

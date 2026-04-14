@@ -15,3 +15,6 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local-only Claude context (may contain sensitive info — never commit)
+CLAUDE.local.md
