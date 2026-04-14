@@ -10,4 +10,4 @@ PORT="${1:-4000}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 cd "$SCRIPT_DIR"
-exec pnpm dev -- --port "$PORT"
+exec pnpm dev --port "$PORT"

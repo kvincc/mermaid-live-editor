@@ -63,6 +63,24 @@ mmd-serve 5173     # 指定端口
 
 设计目的：保持 `vite.config.js` 零改动（源端口仍是 3000），通过 CLI flag 覆盖端口偏好，避免上游合并冲突。
 
+### mmd-pako.sh
+
+`mmd-open.sh` 的反向操作：把 live editor 的 pako URL（或裸 pako 串）解码回 `.mmd` 源文件。
+
+```bash
+mmd-pako "https://mermaid.live/edit#pako:eNp..."   # 完整 URL
+mmd-pako "http://localhost:4000/edit#pako:eNp..."  # 本地 URL 同样适用
+mmd-pako "pako:eNp..."                              # 裸 pako 串
+mmd-pako "eNp..."                                   # 裸 base64url payload
+mmd-pako "<url>" my-diagram.mmd                     # 指定输出文件名
+echo "<url>" | mmd-pako                             # 从 stdin 读
+mmd-pako                                            # 无参时读 macOS 剪贴板（pbpaste）
+```
+
+不指定输出文件时，写到当前目录 `diagram-YYYY-MM-DD_HH-MM-SS.mmd`，并把绝对路径打印到 stdout（方便管道）。
+
+工作原理：正则抓 `pako:([A-Za-z0-9_-]+)` → base64url 转 base64 → `pako.inflate` → `JSON.parse` → 取 `state.code` 字段写文件。复用仓库已装的 `node_modules/pako`，与 `mmd-open.sh` 走同一套编解码。
+
 ### 全局别名
 
 已在 `~/.zshrc` 中配置：
@@ -71,13 +89,14 @@ mmd-serve 5173     # 指定端口
 alias mmd-open="$HOME/Kit/mermaid-live-editor/mmd-open.sh"
 alias mmd-dashboard="$HOME/Kit/mermaid-live-editor/mmd-dashboard.sh"
 alias mmd-serve="$HOME/Kit/mermaid-live-editor/mmd-serve.sh"
+alias mmd-pako="$HOME/Kit/mermaid-live-editor/mmd-pako.sh"
 ```
 
 ## 启动 Live Editor
 
 ```bash
 mmd-serve              # 本地惯用启动方式，端口 4000
-# 等价于：cd ~/Kit/mermaid-live-editor && pnpm dev -- --port 4000
+# 等价于：cd ~/Kit/mermaid-live-editor && pnpm dev --port 4000
 ```
 
 运行在 `localhost:4000`。`mmd-open` 和 `mmd-dashboard` 的点击跳转编辑功能依赖此服务。`mmd-dashboard` 会在检测到端口空闲时自动起这个服务。
